@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>성경 슬라이드 – Bible Slide Presenter</title>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+:root{--bg:#0d0f1a;--sf:#161827;--sf2:#1e2135;--br:#2a2e4a;--gd:#c9a84c;--gdl:#e2c97e;--tx:#e8e9f0;--tm:#8890b0;--ac:#3d6bce;--acl:#5a84e0;--dn:#cc4444;--ok:#44aa66;--r:8px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--tx);font-family:'Noto Sans KR',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+header{background:var(--sf);border-bottom:1px solid var(--br);padding:0 16px;height:50px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logo{font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;color:var(--gd);}
+.logo em{color:var(--tm);font-size:11px;font-style:normal;font-weight:300;margin-left:6px;}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.bname{font-size:11px;color:var(--gdl);background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);border-radius:20px;padding:3px 10px;}
+.btn-cfg{background:var(--sf2);border:1px solid var(--br);color:var(--tm);font-size:11px;padding:4px 10px;border-radius:var(--r);cursor:pointer;font-family:inherit;}
+.btn-cfg:hover{color:var(--tx);}
+main{display:grid;grid-template-columns:310px 1fr 270px;flex:1;overflow:hidden;}
+.panel{display:flex;flex-direction:column;overflow:hidden;}
+.panel+.panel{border-left:1px solid var(--br);}
+.phd{background:var(--sf);border-bottom:1px solid var(--br);padding:9px 14px;font-size:10px;font-weight:700;color:var(--tm);letter-spacing:1.5px;text-transform:uppercase;flex-shrink:0;}
+.pb{flex:1;overflow-y:auto;padding:12px;}
+.pb::-webkit-scrollbar{width:3px;}.pb::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
+.tbr{display:flex;background:var(--sf);border-bottom:1px solid var(--br);flex-shrink:0;}
+.tb{flex:1;padding:8px;font-size:12px;font-weight:500;color:var(--tm);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;transition:all .15s;}
+.tb.on{color:var(--gd);border-bottom-color:var(--gd);}
+label{display:block;font-size:10px;color:var(--tm);margin-bottom:3px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;}
+select,input[type=text]{width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:var(--r);color:var(--tx);font-family:inherit;font-size:13px;padding:7px 10px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s;}
+select:focus,input:focus{border-color:var(--ac);}select option{background:#1e2135;}
+.rw{margin-bottom:9px;}.rw2{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
+.rw3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:9px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:var(--r);border:none;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
+.bp{background:var(--ac);color:#fff;}.bp:hover{background:var(--acl);}
+.bg{background:var(--gd);color:#0d0f1a;}.bg:hover{background:var(--gdl);}
+.bgh{background:transparent;color:var(--tm);border:1px solid var(--br);}.bgh:hover{color:var(--tx);}
+.bsm{padding:4px 9px;font-size:11px;}.bfw{width:100%;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.sp{width:15px;height:15px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ldb{display:flex;flex-direction:column;align-items:center;gap:12px;padding:36px 12px;color:var(--tm);font-size:13px;text-align:center;}
+.vl{display:flex;flex-direction:column;gap:5px;}
+.vi{background:var(--sf2);border:1px solid var(--br);border-radius:var(--r);padding:9px 11px;transition:border-color .15s;}
+.vi:hover{border-color:var(--ac);}
+.vrf{font-size:10px;color:var(--gd);font-weight:700;margin-bottom:3px;}
+.vtx{font-size:12px;line-height:1.65;}
+.vac{display:flex;gap:5px;margin-top:7px;}
+.es{text-align:center;color:var(--tm);padding:36px 14px;}
+.es .ic{font-size:32px;margin-bottom:9px;}
+.es p{font-size:12px;line-height:1.75;}
+.qi{background:var(--sf2);border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;display:flex;gap:9px;cursor:pointer;transition:border-color .15s;}
+.qi:hover{border-color:var(--gd);}.qi.act{border-color:var(--gd);background:rgba(201,168,76,.08);}
+.qn{width:22px;height:22px;border-radius:50%;background:var(--br);color:var(--tm);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.qi.act .qn{background:var(--gd);color:#0d0f1a;}
+.qfo{flex:1;min-width:0;}
+.qr{font-size:10px;color:var(--gd);font-weight:700;margin-bottom:2px;}
+.qp{font-size:11px;color:var(--tm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qd{color:var(--tm);cursor:pointer;padding:2px 4px;transition:color .15s;font-size:15px;}.qd:hover{color:var(--dn);}
+.qdv{border-style:dashed!important;border-color:var(--gdl)!important;}
+.qctl{display:flex;gap:7px;padding:9px 12px;border-top:1px solid var(--br);background:var(--sf);flex-shrink:0;}
+.pw{background:#000;border:1px solid var(--br);border-radius:var(--r);aspect-ratio:16/9;overflow:hidden;position:relative;margin-bottom:12px;}
+.pi{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center;}
+.sg{margin-bottom:12px;}.sg label{margin-bottom:5px;}
+.sw-row{display:flex;gap:5px;flex-wrap:wrap;}
+.sw{width:26px;height:26px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:border-color .15s;flex-shrink:0;}
+.sw.on{border-color:var(--gd);}
+input[type=color]{width:26px;height:26px;padding:0;border:none;border-radius:4px;cursor:pointer;flex-shrink:0;}
+input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
+.szl{font-size:11px;color:var(--gd);font-weight:700;text-align:right;margin-bottom:3px;}
+#pOv{display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+#pOv.on{display:flex;}
+#pV{font-family:'Noto Serif KR',serif;line-height:1.9;font-weight:600;max-width:88%;transition:opacity .25s;}
+#pR{position:absolute;bottom:44px;right:54px;font-family:'Noto Sans KR',sans-serif;font-size:20px;opacity:.65;}
+.pnav{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);display:flex;gap:22px;align-items:center;}
+.pb2{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:inherit;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;}
+.pb2:hover{background:rgba(255,255,255,.22);}
+.pcnt{font-size:13px;opacity:.4;font-family:'Noto Sans KR',sans-serif;}
+.pclose{position:absolute;top:22px;right:28px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:inherit;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;}
+.phlp{position:absolute;top:28px;left:28px;font-size:10px;opacity:.28;font-family:'Noto Sans KR',sans-serif;}
+.nf{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;padding:7px 16px;border-radius:18px;font-size:12px;font-weight:500;z-index:10000;opacity:0;transition:opacity .3s;pointer-events:none;}
+.nf.on{opacity:1;}
+/* Modal */
+.mbg{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;}
+.mbox{background:var(--sf);border:1px solid var(--br);border-radius:14px;padding:26px 28px;width:90%;max-width:480px;}
+.mt{font-family:'Noto Serif KR',serif;font-size:19px;font-weight:700;color:var(--gd);margin-bottom:5px;}
+.ms{font-size:12px;color:var(--tm);line-height:1.85;margin-bottom:18px;}
+.ms a{color:var(--gd);}
+.mst{font-size:12px;min-height:18px;margin:8px 0;}
+.stl{counter-reset:s;list-style:none;margin-bottom:16px;}
+.stl li{counter-increment:s;display:flex;gap:9px;margin-bottom:9px;font-size:12px;color:var(--tm);line-height:1.6;}
+.stl li::before{content:counter(s);width:19px;height:19px;border-radius:50%;background:var(--gd);color:#0d0f1a;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.stl li strong{color:var(--tx);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✝ 성경 슬라이드 <em>Bible Slide Presenter</em></div>
+  <div class="hdr-r">
+    <div class="bname" id="bname">API 미설정</div>
+    <button class="btn-cfg" onclick="showSetup()">⚙ API 설정</button>
+  </div>
+</header>
+
+<main>
+<!-- LEFT -->
+<div class="panel">
+  <div class="phd">📖 성경 검색</div>
+  <div class="tbr">
+    <button class="tb on" onclick="swTab(0)">본문 찾기</button>
+    <button class="tb" onclick="swTab(1)">단어 검색</button>
+  </div>
+  <div id="t0" style="padding:12px;border-bottom:1px solid var(--br);flex-shrink:0;">
+    <div class="rw"><label>책</label><select id="bkSel" onchange="onBk()"></select></div>
+    <div class="rw3">
+      <div><label>장</label><select id="chSel" onchange="onCh()"></select></div>
+      <div><label>시작 절</label><select id="vfSel"></select></div>
+      <div><label>끝 절</label><select id="vtSel"></select></div>
+    </div>
+    <div style="display:flex;gap:7px;">
+      <button class="btn bp" style="flex:1" id="lchBtn" onclick="loadCh()">📄 장 전체</button>
+      <button class="btn bg" id="lvsBtn" onclick="loadVs()">+ 절 추가</button>
+    </div>
+  </div>
+  <div id="t1" style="display:none;padding:12px;border-bottom:1px solid var(--br);flex-shrink:0;">
+    <div class="rw"><label>검색어</label>
+      <input type="text" id="sq" placeholder="예: 하나님이 세상을 이처럼" onkeydown="if(event.key==='Enter')doSrch()">
+    </div>
+    <button class="btn bp bfw" id="srchBtn" onclick="doSrch()">🔍 검색</button>
+  </div>
+  <div class="pb"><div id="res">
+    <div class="es"><div class="ic">📖</div><p>책·장·절을 선택하거나<br>단어로 검색하세요</p></div>
+  </div></div>
+</div>
+
+<!-- MIDDLE -->
+<div class="panel">
+  <div class="phd">🎞 슬라이드 목록 <span id="qcnt" style="color:var(--gd);margin-left:5px;"></span></div>
+  <div class="pb" id="qbody">
+    <div class="es"><div class="ic">🗂</div><p>구절을 검색하고<br>슬라이드에 추가하세요</p></div>
+  </div>
+  <div class="qctl">
+    <button class="btn bgh bsm" onclick="clrQ()">🗑 전체 삭제</button>
+    <div style="flex:1"></div>
+    <button class="btn bgh bsm" onclick="mvAct(-1)">◀</button>
+    <button class="btn bgh bsm" onclick="mvAct(1)">▶</button>
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div class="panel">
+  <div class="phd">🖥 미리보기 & 송출</div>
+  <div class="pb">
+    <div class="pw" id="pw"><div class="pi" id="pi"><div style="color:#444;font-size:11px;">슬라이드 없음</div></div></div>
+
+    <div class="sg"><label>배경 색상</label>
+      <div class="sw-row" id="bgsw">
+        <div class="sw on" style="background:#000" data-c="#000000" onclick="setBg(this)"></div>
+        <div class="sw" style="background:#0d1b2a" data-c="#0d1b2a" onclick="setBg(this)"></div>
+        <div class="sw" style="background:#1a0a2e" data-c="#1a0a2e" onclick="setBg(this)"></div>
+        <div class="sw" style="background:#fff;border:1px solid #444" data-c="#ffffff" onclick="setBg(this)"></div>
+        <div class="sw" style="background:#f5f0e8" data-c="#f5f0e8" onclick="setBg(this)"></div>
+        <input type="color" id="bgc" value="#000000" onchange="S.bg=this.value;clrSw('bgsw');rPre()">
+      </div>
+    </div>
+    <div class="sg"><label>글자 색상</label>
+      <div class="sw-row" id="tcsw">
+        <div class="sw on" style="background:#fff" data-c="#ffffff" onclick="setTc(this)"></div>
+        <div class="sw" style="background:#f5e6c8" data-c="#f5e6c8" onclick="setTc(this)"></div>
+        <div class="sw" style="background:#c9d4ff" data-c="#c9d4ff" onclick="setTc(this)"></div>
+        <div class="sw" style="background:#222;border:1px solid #555" data-c="#111111" onclick="setTc(this)"></div>
+        <input type="color" id="tcc" value="#ffffff" onchange="S.tc=this.value;clrSw('tcsw');rPre()">
+      </div>
+    </div>
+    <div class="sg">
+      <div class="szl" id="szl">글자 크기: 36px</div>
+      <input type="range" id="szr" min="18" max="72" value="36" oninput="S.sz=+this.value;document.getElementById('szl').textContent='글자 크기: '+this.value+'px';rPre()">
+    </div>
+    <div class="sg"><label>구절 참조 위치</label>
+      <select id="rpSel" onchange="rPre()">
+        <option value="br">오른쪽 아래</option>
+        <option value="bl">왼쪽 아래</option>
+        <option value="bc">가운데 아래</option>
+        <option value="no">숨기기</option>
+      </select>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--br);margin:12px 0;">
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <button class="btn bg bfw" onclick="startP()">▶ 전체화면 송출 시작</button>
+      <button class="btn bp bfw" onclick="expPPT()">📥 PPT 내보내기</button>
+    </div>
+    <div style="margin-top:10px;padding:9px;background:var(--sf2);border-radius:var(--r);font-size:11px;color:var(--tm);line-height:1.75;">
+      <strong style="color:var(--tx)">💡 단축키</strong><br>
+      ← → · Space: 이전/다음 슬라이드 · ESC: 종료
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- Presentation -->
+<div id="pOv">
+  <div class="phlp">ESC: 종료 · ← →: 이동 · Space: 다음</div>
+  <button class="pclose" onclick="stopP()">✕</button>
+  <div id="pV"></div>
+  <div id="pR"></div>
+  <div class="pnav">
+    <button class="pb2" onclick="navS(-1)">◀</button>
+    <div class="pcnt" id="pcnt">1 / 1</div>
+    <button class="pb2" onclick="navS(1)">▶</button>
+  </div>
+</div>
+<div class="nf" id="nf"></div>
+
+<!-- Setup Modal -->
+<div class="mbg" id="modal" style="display:none;">
+  <div class="mbox">
+    <div class="mt">🔑 성경 API 설정</div>
+    <div class="ms">
+      무료 API 키 1분 설정 후 66권 전체 한국어 성경을 바로 사용할 수 있습니다.<br>
+      <a href="https://scripture.api.bible" target="_blank">→ scripture.api.bible 바로가기 ↗</a>
+    </div>
+    <ol class="stl">
+      <li><strong>scripture.api.bible</strong> 접속 → <strong>Get Started Free</strong> 클릭</li>
+      <li>이메일로 가입 후 로그인 → <strong>My Apps</strong> → <strong>+ Add App</strong></li>
+      <li>앱 이름 아무거나 입력 후 생성 → <strong>API Key 복사</strong>해서 아래에 붙여넣기</li>
+    </ol>
+    <div class="rw"><label>API 키</label>
+      <input type="text" id="apiIn" placeholder="여기에 API 키를 붙여넣으세요">
+    </div>
+    <div class="mst" id="mst"></div>
+    <button class="btn bg bfw" id="saveBtn" onclick="saveKey()">✅ 저장 및 연결 확인</button>
+    <button class="btn bgh bfw" style="margin-top:7px;font-size:12px;" onclick="hideMod()" id="skipBtn">나중에 설정</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════
+// scripture.api.bible 통합
+// 무료 · CORS 지원 · 한국어 포함
+// ══════════════════════════════
+const SAB='https://api.scripture.api.bible/v1';
+let KEY=localStorage.getItem('sab_k')||'';
+let BID=localStorage.getItem('sab_b')||'';
+let BNM=localStorage.getItem('sab_n')||'';
+
+const BC=['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL','MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'];
+
+const BK=[{n:1,k:'창세기',c:50},{n:2,k:'출애굽기',c:40},{n:3,k:'레위기',c:27},{n:4,k:'민수기',c:36},{n:5,k:'신명기',c:34},{n:6,k:'여호수아',c:24},{n:7,k:'사사기',c:21},{n:8,k:'룻기',c:4},{n:9,k:'사무엘상',c:31},{n:10,k:'사무엘하',c:24},{n:11,k:'열왕기상',c:22},{n:12,k:'열왕기하',c:25},{n:13,k:'역대상',c:29},{n:14,k:'역대하',c:36},{n:15,k:'에스라',c:10},{n:16,k:'느헤미야',c:13},{n:17,k:'에스더',c:10},{n:18,k:'욥기',c:42},{n:19,k:'시편',c:150},{n:20,k:'잠언',c:31},{n:21,k:'전도서',c:12},{n:22,k:'아가',c:8},{n:23,k:'이사야',c:66},{n:24,k:'예레미야',c:52},{n:25,k:'예레미야애가',c:5},{n:26,k:'에스겔',c:48},{n:27,k:'다니엘',c:12},{n:28,k:'호세아',c:14},{n:29,k:'요엘',c:3},{n:30,k:'아모스',c:9},{n:31,k:'오바댜',c:1},{n:32,k:'요나',c:4},{n:33,k:'미가',c:7},{n:34,k:'나훔',c:3},{n:35,k:'하박국',c:3},{n:36,k:'스바냐',c:3},{n:37,k:'학개',c:2},{n:38,k:'스가랴',c:14},{n:39,k:'말라기',c:4},{n:40,k:'마태복음',c:28},{n:41,k:'마가복음',c:16},{n:42,k:'누가복음',c:24},{n:43,k:'요한복음',c:21},{n:44,k:'사도행전',c:28},{n:45,k:'로마서',c:16},{n:46,k:'고린도전서',c:16},{n:47,k:'고린도후서',c:13},{n:48,k:'갈라디아서',c:6},{n:49,k:'에베소서',c:6},{n:50,k:'빌립보서',c:4},{n:51,k:'골로새서',c:4},{n:52,k:'데살로니가전서',c:5},{n:53,k:'데살로니가후서',c:3},{n:54,k:'디모데전서',c:6},{n:55,k:'디모데후서',c:4},{n:56,k:'디도서',c:3},{n:57,k:'빌레몬서',c:1},{n:58,k:'히브리서',c:13},{n:59,k:'야고보서',c:5},{n:60,k:'베드로전서',c:5},{n:61,k:'베드로후서',c:3},{n:62,k:'요한일서',c:5},{n:63,k:'요한이서',c:1},{n:64,k:'요한삼서',c:1},{n:65,k:'유다서',c:1},{n:66,k:'요한계시록',c:22}];
+
+let Q=[],aIdx=-1,pIdx=0,df=-1;
+let S={bg:'#000000',tc:'#ffffff',sz:36};
+
+(function init(){
+  const s=document.getElementById('bkSel');
+  BK.forEach(b=>{const o=document.createElement('option');o.value=b.n;o.textContent=b.k;s.appendChild(o);});
+  onBk(); rPre(); updBN();
+  if(!KEY) showSetup();
+})();
+
+function updBN(){ document.getElementById('bname').textContent=BNM||(KEY?'연결됨':'API 미설정'); }
+
+function swTab(i){
+  document.querySelectorAll('.tb').forEach((t,j)=>t.classList.toggle('on',j===i));
+  document.getElementById('t0').style.display=i===0?'':'none';
+  document.getElementById('t1').style.display=i===1?'':'none';
+}
+function onBk(){
+  const n=+document.getElementById('bkSel').value;
+  const b=BK.find(x=>x.n===n);
+  const cs=document.getElementById('chSel');cs.innerHTML='';
+  for(let i=1;i<=b.c;i++){const o=document.createElement('option');o.value=i;o.textContent=i+'장';cs.appendChild(o);}
+  onCh();
+}
+function onCh(){
+  ['vfSel','vtSel'].forEach(id=>{
+    const s=document.getElementById(id);s.innerHTML='';
+    for(let i=1;i<=176;i++){const o=document.createElement('option');o.value=i;o.textContent=i+'절';s.appendChild(o);}
+  });
+  document.getElementById('vtSel').value=1;
+}
+
+async function sabGet(path){
+  if(!KEY){showSetup('API 키를 먼저 설정해주세요');throw new Error('no_key');}
+  const r=await fetch(SAB+path,{headers:{'api-key':KEY}});
+  if(r.status===401){showSetup('API 키가 올바르지 않습니다. 다시 입력해주세요.');throw new Error('auth');}
+  if(r.status===429)throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도하세요.');
+  if(!r.ok)throw new Error('API 오류 '+r.status);
+  return r.json();
+}
+
+function parseV(html){
+  const d=document.createElement('div');d.innerHTML=html;
+  const vs=[];let vn=0,vt='';
+  function wk(node){
+    if(node.nodeType===3){if(vn>0)vt+=node.textContent;}
+    else if(node.nodeType===1){
+      const num=node.getAttribute('data-number');
+      if(num!==null){
+        if(vn>0&&vt.trim())vs.push({verse:vn,text:vt.replace(/\s+/g,' ').trim()});
+        vn=+num;vt='';
+      } else node.childNodes.forEach(wk);
+    }
+  }
+  d.childNodes.forEach(wk);
+  if(vn>0&&vt.trim())vs.push({verse:vn,text:vt.replace(/\s+/g,' ').trim()});
+  return vs.sort((a,b)=>a.verse-b.verse);
+}
+
+async function loadCh(){
+  if(!KEY){showSetup();return;}
+  const bn=+document.getElementById('bkSel').value;
+  const ch=+document.getElementById('chSel').value;
+  const bk=BK.find(b=>b.n===bn).k;
+  setBL('lchBtn',true);
+  setRes(`<div class="ldb"><div class="sp" style="width:24px;height:24px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}장 불러오는 중...</div></div>`);
+  try{
+    const d=await sabGet(`/bibles/${BID}/passages/${BC[bn-1]}.${ch}?content-type=html&include-verse-numbers=true&include-titles=false&include-chapter-numbers=false`);
+    const vs=parseV(d.data.content);
+    if(!vs.length)throw new Error('본문을 가져올 수 없습니다');
+    rCh(vs,bk,ch);
+  }catch(e){if(e.message!=='no_key'&&e.message!=='auth')showErr(e.message);}
+  finally{setBL('lchBtn',false);}
+}
+
+async function loadVs(){
+  if(!KEY){showSetup();return;}
+  const bn=+document.getElementById('bkSel').value;
+  const ch=+document.getElementById('chSel').value;
+  const vf=+document.getElementById('vfSel').value;
+  const vt=+document.getElementById('vtSel').value;
+  const from=Math.min(vf,vt),to=Math.max(vf,vt);
+  const bk=BK.find(b=>b.n===bn).k;
+  setBL('lvsBtn',true);
+  setRes(`<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}:${from}${from!==to?'~'+to:''} 불러오는 중...</div></div>`);
+  try{
+    const code=BC[bn-1];
+    const pid=from===to?`${code}.${ch}.${from}`:`${code}.${ch}.${from}-${code}.${ch}.${to}`;
+    const d=await sabGet(`/bibles/${BID}/passages/${pid}?content-type=html&include-verse-numbers=true&include-titles=false&include-chapter-numbers=false`);
+    const vs=parseV(d.data.content);
+    if(!vs.length)throw new Error('본문을 가져올 수 없습니다');
+    if(from===to&&vs[0]){addQ({ref:`${bk} ${ch}:${vs[0].verse}`,text:vs[0].text});notify(`✅ ${bk} ${ch}:${from} 추가됨`);}
+    rCh(vs,bk,ch,from!==to,from,to);
+  }catch(e){if(e.message!=='no_key'&&e.message!=='auth')showErr(e.message);}
+  finally{setBL('lvsBtn',false);}
+}
+
+async function doSrch(){
+  if(!KEY){showSetup();return;}
+  const q=document.getElementById('sq').value.trim();if(!q)return;
+  setBL('srchBtn',true);
+  setRes(`<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>"${q}" 검색 중...</div></div>`);
+  try{
+    const d=await sabGet(`/bibles/${BID}/search?query=${encodeURIComponent(q)}&limit=25&sort=relevance`);
+    const vs=(d.data?.verses)||[];
+    if(!vs.length){showErr('검색 결과가 없습니다.\n다른 단어로 검색해 보세요.');return;}
+    const items=vs.map(v=>{
+      const[bc,ch,vn]=[...v.id.split('.')];
+      const bi=BC.indexOf(bc);
+      const bkN=bi>=0?BK[bi].k:bc;
+      const txt=(v.text||'').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
+      return{ref:`${bkN} ${ch}:${vn}`,text:txt};
+    });
+    rSrch(items);
+  }catch(e){if(e.message!=='no_key'&&e.message!=='auth')showErr(e.message);}
+  finally{setBL('srchBtn',false);}
+}
+
+function setRes(h){document.getElementById('res').innerHTML=h;}
+function showErr(m){setRes(`<div class="es"><div class="ic">⚠️</div><p>${m.replace(/\n/g,'<br>')}</p></div>`);}
+
+function rCh(vs,bk,ch,showAll,from,to){
+  const ab=showAll?`<div style="margin-bottom:9px;"><button class="btn bg bfw" onclick='addAll(${JSON.stringify(vs)},${JSON.stringify(bk)},${ch})'>✚ ${bk} ${ch}:${from}~${to} 전체 추가</button></div>`:'';
+  const h=vs.map(v=>{const rf=`${bk} ${ch}:${v.verse}`,sr=JSON.stringify(rf),st=JSON.stringify(v.text);
+    return`<div class="vi"><div class="vrf">${rf}</div><div class="vtx">${v.text}</div><div class="vac"><button class="btn bg bsm" onclick='addQ({ref:${sr},text:${st}});notify("✅ ${rf} 추가됨")'>+ 추가</button></div></div>`;
+  }).join('');
+  setRes(ab+`<div class="vl">${h}</div>`);
+}
+function rSrch(items){
+  const h=items.map(it=>`<div class="vi"><div class="vrf">${it.ref}</div><div class="vtx">${it.text}</div><div class="vac"><button class="btn bg bsm" onclick='addQ(${JSON.stringify(it)});notify("✅ 추가됨")'>+ 추가</button></div></div>`).join('');
+  setRes(`<div class="vl">${h}</div>`);
+}
+window.addAll=function(vs,bk,ch){vs.forEach(v=>addQ({ref:`${bk} ${ch}:${v.verse}`,text:v.text}));notify(`✅ ${vs.length}개 구절 추가됨`);};
+
+// Queue
+function addQ(it){Q.push({...it,id:Date.now()+Math.random()});if(aIdx<0)aIdx=0;rQ();rPre();}
+function rmQ(i){Q.splice(i,1);if(aIdx>=Q.length)aIdx=Q.length-1;rQ();rPre();}
+function clrQ(){if(!Q.length)return;if(confirm('슬라이드 목록을 전부 삭제할까요?')){Q=[];aIdx=-1;rQ();rPre();}}
+function setA(i){aIdx=i;rQ();rPre();}
+function mvAct(d){const n=aIdx+d;if(n>=0&&n<Q.length)setA(n);}
+function rQ(){
+  const bd=document.getElementById('qbody');
+  document.getElementById('qcnt').textContent=Q.length?`(${Q.length})`:'';
+  if(!Q.length){bd.innerHTML=`<div class="es"><div class="ic">🗂</div><p>슬라이드가 없습니다</p></div>`;return;}
+  bd.innerHTML=`<div style="display:flex;flex-direction:column;gap:5px;">${Q.map((it,i)=>`
+    <div class="${'qi'+(i===aIdx?' act':'')}" onclick="setA(${i})" draggable="true"
+      ondragstart="df=${i}" ondragover="event.preventDefault();this.classList.add('qdv')"
+      ondragleave="this.classList.remove('qdv')" ondrop="doDrop(event,${i})">
+      <div class="qn">${i+1}</div>
+      <div class="qfo"><div class="qr">${it.ref}</div><div class="qp">${it.text}</div></div>
+      <div class="qd" onclick="event.stopPropagation();rmQ(${i})">✕</div>
+    </div>`).join('')}</div>`;
+}
+window.doDrop=function(e,i){
+  e.currentTarget.classList.remove('qdv');
+  if(df<0||df===i)return;
+  const it=Q.splice(df,1)[0];Q.splice(i,0,it);
+  if(aIdx===df)aIdx=i;else if(aIdx>df&&aIdx<=i)aIdx--;else if(aIdx<df&&aIdx>=i)aIdx++;
+  df=-1;rQ();rPre();
+};
+
+// Preview
+function rPre(){
+  const w=document.getElementById('pw'),pi=document.getElementById('pi'),it=Q[aIdx];
+  w.style.background=S.bg;
+  if(!it){pi.innerHTML=`<div style="color:${S.tc};opacity:.25;font-size:11px;">슬라이드 없음</div>`;return;}
+  const sc=.26,fs=Math.round(S.sz*sc),rfs=Math.max(6,Math.round(9*sc));
+  const rp=document.getElementById('rpSel').value;
+  let rs='display:none';
+  if(rp!=='no'){rs=`position:absolute;font-size:${rfs}px;opacity:.7;color:${S.tc};`;
+    if(rp==='br')rs+='bottom:5px;right:7px';
+    else if(rp==='bl')rs+='bottom:5px;left:7px';
+    else rs+='bottom:5px;left:50%;transform:translateX(-50%)';}
+  pi.innerHTML=`<div style="font-family:'Noto Serif KR',serif;font-size:${fs}px;line-height:1.9;font-weight:600;color:${S.tc};text-align:center;padding:7px;">${it.text}</div><div style="${rs}">${it.ref}</div>`;
+}
+function clrSw(id){document.querySelectorAll(`#${id} .sw`).forEach(s=>s.classList.remove('on'));}
+function setBg(el){clrSw('bgsw');el.classList.add('on');S.bg=el.dataset.c;rPre();}
+function setTc(el){clrSw('tcsw');el.classList.add('on');S.tc=el.dataset.c;rPre();}
+
+// Presentation
+function startP(){if(!Q.length){alert('슬라이드 목록이 비어있습니다.');return;}pIdx=Math.max(0,aIdx);document.getElementById('pOv').classList.add('on');rSlide();document.addEventListener('keydown',onKey);}
+function stopP(){document.getElementById('pOv').classList.remove('on');document.removeEventListener('keydown',onKey);}
+function rSlide(){
+  const it=Q[pIdx],ov=document.getElementById('pOv'),pv=document.getElementById('pV'),pr=document.getElementById('pR');
+  ov.style.background=S.bg;ov.style.color=S.tc;
+  pv.style.fontSize=S.sz+'px';pv.style.opacity='0';setTimeout(()=>pv.style.opacity='1',30);pv.textContent=it.text;
+  const rp=document.getElementById('rpSel').value;
+  pr.style.display=rp==='no'?'none':'block';pr.textContent=it.ref;
+  pr.style.fontSize=Math.max(14,Math.round(S.sz*.38))+'px';
+  if(rp==='br'){pr.style.right='54px';pr.style.left='auto';pr.style.transform='none';}
+  else if(rp==='bl'){pr.style.left='54px';pr.style.right='auto';pr.style.transform='none';}
+  else{pr.style.left='50%';pr.style.right='auto';pr.style.transform='translateX(-50%)';}
+  document.getElementById('pcnt').textContent=`${pIdx+1} / ${Q.length}`;
+  aIdx=pIdx;rQ();
+}
+function navS(d){const n=pIdx+d;if(n>=0&&n<Q.length){pIdx=n;rSlide();}}
+function onKey(e){
+  if(e.key==='Escape')stopP();
+  else if(['ArrowRight',' ','ArrowDown'].includes(e.key)){e.preventDefault();navS(1);}
+  else if(['ArrowLeft','ArrowUp'].includes(e.key)){e.preventDefault();navS(-1);}
+}
+document.getElementById('pOv').addEventListener('click',function(e){if(e.target===this)navS(1);});
+
+// PPT
+async function expPPT(){
+  if(!Q.length){alert('슬라이드 목록이 비어있습니다.');return;}
+  if(typeof PptxGenJS==='undefined'){alert('PPT 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.');return;}
+  notify('PPT 생성 중...');
+  const px=new PptxGenJS();px.layout='LAYOUT_WIDE';
+  const bg=S.bg.replace('#','').toUpperCase(),tc=S.tc.replace('#','').toUpperCase();
+  const rp=document.getElementById('rpSel').value;
+  Q.forEach(it=>{
+    const sl=px.addSlide();sl.background={color:bg};
+    sl.addText(it.text,{x:.5,y:.8,w:'90%',h:4.3,fontFace:'Malgun Gothic',fontSize:Math.round(S.sz*.78),color:tc,bold:true,align:'center',valign:'middle',wrap:true,lineSpacingMultiple:1.6});
+    if(rp!=='no'){const rx=rp==='br'?7.8:rp==='bl'?.3:0,ra=rp==='bc'?'center':rp==='br'?'right':'left';
+      sl.addText(it.ref,{x:rp==='bc'?0:rx,y:5.4,w:rp==='bc'?'100%':4,h:.4,fontFace:'Malgun Gothic',fontSize:14,color:tc,align:ra,transparency:25});}
+  });
+  await px.writeFile({fileName:'성경_슬라이드.pptx'});
+  notify('✅ 성경_슬라이드.pptx 저장됨!');
+}
+
+// Modal
+function showSetup(msg){
+  document.getElementById('modal').style.display='flex';
+  if(KEY)document.getElementById('apiIn').value=KEY;
+  const st=document.getElementById('mst');
+  st.innerHTML=msg?`<span style="color:var(--dn)">⚠️ ${msg}</span>`:'';
+}
+function hideMod(){document.getElementById('modal').style.display='none';}
+async function saveKey(){
+  const k=document.getElementById('apiIn').value.trim();
+  if(!k){document.getElementById('mst').textContent='API 키를 입력해주세요';return;}
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true;btn.innerHTML='<div class="sp" style="color:currentColor;border-top-color:currentColor;"></div> 확인 중...';
+  document.getElementById('mst').innerHTML='<span style="color:var(--tm)">연결 확인 중...</span>';
+  try{
+    const r=await fetch(`${SAB}/bibles?language=kor`,{headers:{'api-key':k}});
+    if(r.status===401)throw new Error('API 키가 올바르지 않습니다');
+    if(!r.ok)throw new Error(`서버 오류 ${r.status}`);
+    const d=await r.json();
+    const bl=d.data||[];
+    if(!bl.length)throw new Error('한국어 성경이 없습니다');
+    const pref=bl.find(b=>(b.nameLocal||b.name||'').includes('개역'))||bl[0];
+    KEY=k;BID=pref.id;BNM=pref.nameLocal||pref.name||'한국어';
+    localStorage.setItem('sab_k',KEY);localStorage.setItem('sab_b',BID);localStorage.setItem('sab_n',BNM);
+    document.getElementById('mst').innerHTML=`<span style="color:var(--ok)">✅ 연결 성공! ${BNM}</span>`;
+    updBN();
+    setTimeout(hideMod,1800);
+  }catch(e){document.getElementById('mst').innerHTML=`<span style="color:var(--dn)">❌ ${e.message}</span>`;}
+  finally{btn.disabled=false;btn.innerHTML='✅ 저장 및 연결 확인';}
+}
+function setBL(id,on){
+  const b=document.getElementById(id);if(!b)return;
+  b.disabled=on;
+  if(on){b._t=b.innerHTML;b.innerHTML='<div class="sp" style="color:currentColor;border-top-color:currentColor;"></div>';}
+  else b.innerHTML=b._t||b.innerHTML;
+}
+function notify(m){const e=document.getElementById('nf');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2800);}
+</script>
+</body>
+</html>

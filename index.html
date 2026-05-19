@@ -127,7 +127,12 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
 
   <!-- 본문 찾기 -->
   <div id="t0" style="padding:12px;border-bottom:1px solid var(--br);flex-shrink:0;">
-    <div class="rw"><label>책</label><select id="bkSel" onchange="onBk()"></select></div>
+    <div class="rw">
+  <label>본문 빠른 입력</label>
+  <input type="text" id="quickInput" placeholder="예: 요한복음 3:16-18">
+</div>
+
+<button class="btn bg2 bfw" onclick="quickAdd()">⚡ 본문 자동 추가</button>
     <div class="rw3">
       <div><label>장</label><select id="chSel" onchange="onCh()"></select></div>
       <div><label>시작 절</label><select id="vfSel"></select></div>
@@ -268,9 +273,15 @@ const BK=[
 
 let Q=[],aIdx=-1,pIdx=0,df=-1;
 let S={bg:'#000000',tc:'#ffffff',sz:36};
+let BIBLE = {};
 
+async function loadBible(){
+  const res = await fetch('./bible.json');
+  BIBLE = await res.json();
+}
 // ── 초기화 ──
-(function(){
+(async function(){
+  await loadBible(); // 🔥 추가
   const s=document.getElementById('bkSel');
   BK.forEach(b=>{const o=document.createElement('option');o.value=b.n;o.textContent=b.k;s.appendChild(o);});
   document.getElementById('transSel').value=TRANS;
@@ -313,9 +324,6 @@ function onCh(){
 // ── getbible.net 호출 ──
 // URL: https://api.getbible.net/v2/{trans}/{bookNum}/{chapter}.json
 // 응답: { verses: { "1": {verse:1, text:"..."}, ... } }
-async function gbChapter(bookNum, chapter){
-  const url=`${GB}/${TRANS}/${bookNum}/${chapter}.json`;
-  const r=await fetch(url);
   if(r.status===404)throw new Error(`데이터 없음 (번역본: ${TRANS})`);
   if(!r.ok)throw new Error('API 오류 '+r.status);
   const d=await r.json();

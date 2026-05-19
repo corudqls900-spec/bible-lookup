@@ -239,7 +239,7 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
 // scripture.api.bible 통합
 // 무료 · CORS 지원 · 한국어 포함
 // ══════════════════════════════
-const SAB='https://api.scripture.api.bible/v1';
+const SAB='https://rest.api.bible/v1';
 let KEY=localStorage.getItem('sab_k')||'';
 let BID=localStorage.getItem('sab_b')||'';
 let BNM=localStorage.getItem('sab_n')||'';
@@ -484,13 +484,13 @@ async function saveKey(){
   btn.disabled=true;btn.innerHTML='<div class="sp" style="color:currentColor;border-top-color:currentColor;"></div> 확인 중...';
   document.getElementById('mst').innerHTML='<span style="color:var(--tm)">연결 확인 중...</span>';
   try{
-    const r=await fetch(`${SAB}/bibles?language=kor`,{headers:{'api-key':k}});
+    const r=await fetch(`${SAB}/bibles`,{headers:{'api-key':k}});
     if(r.status===401)throw new Error('API 키가 올바르지 않습니다');
     if(!r.ok)throw new Error(`서버 오류 ${r.status}`);
     const d=await r.json();
     const bl=d.data||[];
     if(!bl.length)throw new Error('한국어 성경이 없습니다');
-    const pref=bl.find(b=>(b.nameLocal||b.name||'').includes('개역'))||bl[0];
+    const pref = bl.find(b => b.id === 'de4e12af7f28f599-01') || bl[0];
     KEY=k;BID=pref.id;BNM=pref.nameLocal||pref.name||'한국어';
     localStorage.setItem('sab_k',KEY);localStorage.setItem('sab_b',BID);localStorage.setItem('sab_n',BNM);
     document.getElementById('mst').innerHTML=`<span style="color:var(--ok)">✅ 연결 성공! ${BNM}</span>`;

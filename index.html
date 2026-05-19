@@ -131,7 +131,11 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
   <label>본문 빠른 입력</label>
   <input type="text" id="quickInput" placeholder="예: 요한복음 3:16-18">
 </div>
-
+<div class="rw">
+  <label>책</label>
+  <select id="bkSel" onchange="onBk()"></select>
+</div>
+    
 <button class="btn bg2 bfw" onclick="quickAdd()">⚡ 본문 자동 추가</button>
     <div class="rw3">
       <div><label>장</label><select id="chSel" onchange="onCh()"></select></div>
@@ -243,7 +247,6 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
 //  ✅ 무료  ✅ API키 불필요  ✅ CORS 지원
 //  ✅ 개역한글(kor) / 개역개정(nkrv) 제공
 // ══════════════════════════════════════════
-const GB = 'https://api.getbible.net/v2';
 let TRANS = localStorage.getItem('gb_trans') || 'kor';
 
 const BK=[
@@ -275,13 +278,19 @@ let Q=[],aIdx=-1,pIdx=0,df=-1;
 let S={bg:'#000000',tc:'#ffffff',sz:36};
 let BIBLE = {};
 
+// 👇 여기 추가
+function getLocalChapter(bn, ch){
+  if(!BIBLE[bn] || !BIBLE[bn][ch]) return [];
+  return BIBLE[bn][ch];
+}
+
 async function loadBible(){
   const res = await fetch('./bible.json');
   BIBLE = await res.json();
 }
 // ── 초기화 ──
 (async function(){
-  await loadBible(); // 🔥 추가
+  await loadBible(); // bible.json
   const s=document.getElementById('bkSel');
   BK.forEach(b=>{const o=document.createElement('option');o.value=b.n;o.textContent=b.k;s.appendChild(o);});
   document.getElementById('transSel').value=TRANS;
@@ -324,12 +333,18 @@ function onCh(){
 // ── getbible.net 호출 ──
 // URL: https://api.getbible.net/v2/{trans}/{bookNum}/{chapter}.json
 // 응답: { verses: { "1": {verse:1, text:"..."}, ... } }
-  if(r.status===404)throw new Error(`데이터 없음 (번역본: ${TRANS})`);
-  if(!r.ok)throw new Error('API 오류 '+r.status);
-  const d=await r.json();
-  return Object.values(d.verses||{})
-    .map(v=>({verse:+v.verse, text:(v.text||'').trim()}))
-    .sort((a,b)=>a.verse-b.verse);
+ async function getChapter(bn, ch){
+  const url = `https://api.getbible.net/v2/${TRANS}/${bn}/${ch}.json`;
+  const r = await fetch(url);
+
+  if(r.status===404) throw new Error(`데이터 없음 (번역본: ${TRANS})`);
+  if(!r.ok) throw new Error('API 오류 ' + r.status);
+
+  const d = await r.json();
+
+  return Object.values(d.verses || {})
+    .map(v => ({ verse: +v.verse, text: (v.text || '').trim() }))
+    .sort((a,b) => a.verse - b.verse);
 }
 
 // ── 장 전체 불러오기 ──
@@ -340,7 +355,7 @@ async function loadCh(){
   setBL('lchBtn',true);
   setRes(`<div class="ldb"><div class="sp" style="width:24px;height:24px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}장 불러오는 중...</div></div>`);
   try{
-    const vs=await gbChapter(bn,ch);
+    const vs = getLocalChapter(bn,ch);
     if(!vs.length)throw new Error('구절을 가져올 수 없습니다');
     rCh(vs,bk,ch);
   }catch(e){showErr(e.message);}
@@ -358,7 +373,7 @@ async function loadVs(){
   setBL('lvsBtn',true);
   setRes(`<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}:${from}${from!==to?'~'+to:''} 불러오는 중...</div></div>`);
   try{
-    const all=await gbChapter(bn,ch);
+    const all = getLocalChapter(bn,ch);
     const vs=all.filter(v=>v.verse>=from&&v.verse<=to);
     if(!vs.length)throw new Error('해당 구절이 없습니다');
     if(from===to){
@@ -382,7 +397,7 @@ async function doSrch(){
     const results=[];
     for(let ch=1;ch<=bk.c;ch++){
       try{
-        const vs=await gbChapter(bn,ch);
+        const vs = getLocalChapter(bn,ch);
         vs.forEach(v=>{
           if(v.text.includes(q))
             results.push({ref:`${bk.k} ${ch}:${v.verse}`,text:v.text});

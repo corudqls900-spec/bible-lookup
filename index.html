@@ -489,6 +489,15 @@ async function saveKey(){
     if(!r.ok)throw new Error(`서버 오류 ${r.status}`);
     const d=await r.json();
     const bl=d.data||[];
+    console.log("📚 전체 성경 목록:");
+bl.forEach(b => {
+  console.log({
+    id: b.id,
+    name: b.name,
+    nameLocal: b.nameLocal,
+    lang: b.language?.name
+  });
+});
     if(!bl.length)throw new Error('한국어 성경이 없습니다');
     const pref = bl.find(b => b.id === 'de4e12af7f28f599-01') || bl[0];
     KEY=k;BID=pref.id;BNM=pref.nameLocal||pref.name||'한국어';

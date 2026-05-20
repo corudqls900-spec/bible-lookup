@@ -244,7 +244,7 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
 //  getbible.net API + 로컬 bible.json 지원
 //  bible.json 있으면 로컬 우선, 없으면 API
 // ══════════════════════════════════════════
-const GB='https://api.getbible.net/v2';
+const GB='https://rest.api.bible';
 let TRANS=localStorage.getItem('gb_trans')||'kor';
 let BIBLE={};
 
@@ -279,7 +279,7 @@ let S={bg:'#000000',tc:'#ffffff',sz:36};
 // ── bible.json 로드 및 형식 자동 감지 ──
 async function loadBible(){
   try{
-    const res=await fetch('./bible.json');
+    const res=await fetch('/bible.json');
     if(!res.ok)throw new Error('HTTP '+res.status);
     const raw=await res.json();
     BIBLE=parseBibleJSON(raw);

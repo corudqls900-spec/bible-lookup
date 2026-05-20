@@ -128,15 +128,13 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
   <!-- 본문 찾기 -->
   <div id="t0" style="padding:12px;border-bottom:1px solid var(--br);flex-shrink:0;">
     <div class="rw">
-  <label>본문 빠른 입력</label>
-  <input type="text" id="quickInput" placeholder="예: 요한복음 3:16-18">
-</div>
-<div class="rw">
-  <label>책</label>
-  <select id="bkSel" onchange="onBk()"></select>
-</div>
-    
-<button class="btn bg2 bfw" onclick="quickAdd()">⚡ 본문 자동 추가</button>
+      <label>⚡ 빠른 입력</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="quickInput" placeholder="예: 요한복음 3:16  또는  요 3:16-18" onkeydown="if(event.key==='Enter')quickAdd()" style="flex:1">
+        <button class="btn bg2" onclick="quickAdd()" style="white-space:nowrap">+ 추가</button>
+      </div>
+    </div>
+    <div class="rw"><label>책</label><select id="bkSel" onchange="onBk()"></select></div>
     <div class="rw3">
       <div><label>장</label><select id="chSel" onchange="onCh()"></select></div>
       <div><label>시작 절</label><select id="vfSel"></select></div>
@@ -243,11 +241,12 @@ input[type=range]{width:100%;cursor:pointer;accent-color:var(--gd);}
 
 <script>
 // ══════════════════════════════════════════
-//  getbible.net API 사용
-//  ✅ 무료  ✅ API키 불필요  ✅ CORS 지원
-//  ✅ 개역한글(kor) / 개역개정(nkrv) 제공
+//  getbible.net API + 로컬 bible.json 지원
+//  bible.json 있으면 로컬 우선, 없으면 API
 // ══════════════════════════════════════════
-let TRANS = localStorage.getItem('gb_trans') || 'kor';
+const GB='https://api.getbible.net/v2';
+let TRANS=localStorage.getItem('gb_trans')||'kor';
+let BIBLE={};
 
 const BK=[
   {n:1,k:'창세기',c:50},{n:2,k:'출애굽기',c:40},{n:3,k:'레위기',c:27},
@@ -276,36 +275,116 @@ const BK=[
 
 let Q=[],aIdx=-1,pIdx=0,df=-1;
 let S={bg:'#000000',tc:'#ffffff',sz:36};
-let BIBLE = {};
 
-// 👇 여기 추가
-function getLocalChapter(bn, ch){
-  if(!BIBLE[bn] || !BIBLE[bn][ch]) return [];
+// ── bible.json 로드 및 형식 자동 감지 ──
+async function loadBible(){
+  try{
+    const res=await fetch('./bible.json');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const raw=await res.json();
+    BIBLE=parseBibleJSON(raw);
+    const sample=BIBLE[43]&&BIBLE[43][3]&&BIBLE[43][3][0];
+    if(sample) console.log('✅ bible.json 로드 성공. 요3:1=',sample.text.slice(0,20));
+    else console.warn('⚠️ bible.json 파싱됐으나 데이터 비어있음');
+  }catch(e){
+    console.warn('bible.json 없음, getbible.net API 사용:', e.message);
+  }
+}
+
+function parseBibleJSON(raw){
+  const out={};
+  // 형식 A: [{name, chapters:[["절","절",...], ...]}, ...] (thiagobodruk)
+  if(Array.isArray(raw)&&raw[0]&&raw[0].chapters&&Array.isArray(raw[0].chapters[0])&&typeof raw[0].chapters[0][0]==='string'){
+    raw.forEach((bk,bi)=>{
+      out[bi+1]={};
+      bk.chapters.forEach((ch,ci)=>{
+        out[bi+1][ci+1]=ch.map((t,vi)=>({verse:vi+1,text:String(t).trim()}));
+      });
+    });
+    return out;
+  }
+  // 형식 A2: [{name, chapters:[{verses:[{verse,text}]}, ...]}, ...]
+  if(Array.isArray(raw)&&raw[0]&&raw[0].chapters&&raw[0].chapters[0]&&raw[0].chapters[0].verses){
+    raw.forEach((bk,bi)=>{
+      out[bi+1]={};
+      bk.chapters.forEach((ch,ci)=>{
+        out[bi+1][ci+1]=(ch.verses||[]).map(v=>({verse:+v.verse,text:String(v.text||'').trim()}));
+      });
+    });
+    return out;
+  }
+  // 형식 B: {resultset:{row:[{field:[b,c,v,t]}...]}} (scrollmapper)
+  if(raw&&raw.resultset&&raw.resultset.row){
+    raw.resultset.row.forEach(r=>{
+      const b=+r.field[0],c=+r.field[1],v=+r.field[2],t=String(r.field[3]).trim();
+      if(!out[b])out[b]={};
+      if(!out[b][c])out[b][c]=[];
+      out[b][c].push({verse:v,text:t});
+    });
+    return out;
+  }
+  // 형식 C: {1:{1:[{verse,text}]}} 또는 {"1":{"1":[...]}}
+  const keys=Object.keys(raw);
+  if(keys.length&&(raw[1]||raw['1'])){
+    keys.forEach(bk=>{
+      const bn=+bk;out[bn]={};
+      const bookObj=raw[bk];
+      if(typeof bookObj==='object'&&!Array.isArray(bookObj)){
+        Object.keys(bookObj).forEach(ch=>{
+          const cn=+ch,chData=bookObj[ch];
+          if(Array.isArray(chData))
+            out[bn][cn]=chData.map(v=>({verse:+(v.verse||0),text:String(v.text||'').trim()}));
+        });
+      }
+    });
+    return out;
+  }
+  // 형식 D: {books:{1:{chapters:{1:{verses:{1:{text}}}}}}} (getbible.net 전체)
+  if(raw&&raw.books){
+    Object.entries(raw.books).forEach(([bk,book])=>{
+      const bn=+bk;out[bn]={};
+      Object.entries(book.chapters||{}).forEach(([ch,chap])=>{
+        out[bn][+ch]=Object.values(chap.verses||{})
+          .map(v=>({verse:+v.verse,text:String(v.text||'').trim()}))
+          .sort((a,b)=>a.verse-b.verse);
+      });
+    });
+    return out;
+  }
+  console.error('알 수 없는 bible.json 형식. 첫 키:', Object.keys(raw).slice(0,3));
+  return {};
+}
+
+// 챕터 데이터: 로컬 우선, 없으면 API
+function getLocal(bn,ch){
+  if(BIBLE[bn]&&BIBLE[bn][ch]&&BIBLE[bn][ch].length>0)return BIBLE[bn][ch];
+  return null;
+}
+async function getChapData(bn,ch){
+  const local=getLocal(bn,ch);
+  if(local)return local;
+  // fallback: getbible.net
+  const r=await fetch(`${GB}/${TRANS}/${bn}/${ch}.json`);
+  if(r.status===404)throw new Error('데이터 없음 (번역본: '+TRANS+')');
+  if(!r.ok)throw new Error('API 오류 '+r.status);
+  const d=await r.json();
+  // 캐시에 저장
+  if(!BIBLE[bn])BIBLE[bn]={};
+  BIBLE[bn][ch]=Object.values(d.verses||{}).map(v=>({verse:+v.verse,text:(v.text||'').trim()})).sort((a,b)=>a.verse-b.verse);
   return BIBLE[bn][ch];
 }
 
-async function loadBible(){
-  const res = await fetch('./bible.json');
-  BIBLE = await res.json();
-}
 // ── 초기화 ──
 (async function(){
-  await loadBible(); // bible.json
+  await loadBible();
   const s=document.getElementById('bkSel');
   BK.forEach(b=>{const o=document.createElement('option');o.value=b.n;o.textContent=b.k;s.appendChild(o);});
   document.getElementById('transSel').value=TRANS;
-  onBk(); rPre(); updBN();
+  onBk();rPre();updBN();
 })();
 
-function updBN(){
-  const nm={kor:'개역한글',nkrv:'개역개정'};
-  document.getElementById('bname').textContent=nm[TRANS]||TRANS;
-}
-function changeTrans(){
-  TRANS=document.getElementById('transSel').value;
-  localStorage.setItem('gb_trans',TRANS);
-  updBN();
-}
+function updBN(){const nm={kor:'개역한글',nkrv:'개역개정'};document.getElementById('bname').textContent=nm[TRANS]||TRANS;}
+function changeTrans(){TRANS=document.getElementById('transSel').value;localStorage.setItem('gb_trans',TRANS);BIBLE={};updBN();}
 
 // ── 탭 ──
 function swTab(i){
@@ -330,21 +409,27 @@ function onCh(){
   document.getElementById('vtSel').value=1;
 }
 
-// ── getbible.net 호출 ──
-// URL: https://api.getbible.net/v2/{trans}/{bookNum}/{chapter}.json
-// 응답: { verses: { "1": {verse:1, text:"..."}, ... } }
- async function getChapter(bn, ch){
-  const url = `https://api.getbible.net/v2/${TRANS}/${bn}/${ch}.json`;
-  const r = await fetch(url);
+// ── 빠른 입력 ──
+const BA={'창':1,'창세기':1,'출':2,'출애굽기':2,'레':3,'레위기':3,'민':4,'민수기':4,'신':5,'신명기':5,'수':6,'여호수아':6,'삿':7,'사사기':7,'룻':8,'룻기':8,'삼상':9,'사무엘상':9,'삼하':10,'사무엘하':10,'왕상':11,'열왕기상':11,'왕하':12,'열왕기하':12,'대상':13,'역대상':13,'대하':14,'역대하':14,'스':15,'에스라':15,'느':16,'느헤미야':16,'에':17,'에스더':17,'욥':18,'욥기':18,'시':19,'시편':19,'잠':20,'잠언':20,'전':21,'전도서':21,'아':22,'아가':22,'사':23,'이사야':23,'렘':24,'예레미야':24,'애':25,'예레미야애가':25,'겔':26,'에스겔':26,'단':27,'다니엘':27,'호':28,'호세아':28,'욜':29,'요엘':29,'암':30,'아모스':30,'옵':31,'오바댜':31,'욘':32,'요나':32,'미':33,'미가':33,'나':34,'나훔':34,'합':35,'하박국':35,'습':36,'스바냐':36,'학':37,'학개':37,'슥':38,'스가랴':38,'말':39,'말라기':39,'마':40,'마태복음':40,'막':41,'마가복음':41,'눅':42,'누가복음':42,'요':43,'요한복음':43,'행':44,'사도행전':44,'롬':45,'로마서':45,'고전':46,'고린도전서':46,'고후':47,'고린도후서':47,'갈':48,'갈라디아서':48,'엡':49,'에베소서':49,'빌':50,'빌립보서':50,'골':51,'골로새서':51,'살전':52,'데살로니가전서':52,'살후':53,'데살로니가후서':53,'딤전':54,'디모데전서':54,'딤후':55,'디모데후서':55,'딛':56,'디도서':56,'몬':57,'빌레몬서':57,'히':58,'히브리서':58,'약':59,'야고보서':59,'벧전':60,'베드로전서':60,'벧후':61,'베드로후서':61,'요일':62,'요한일서':62,'요이':63,'요한이서':63,'요삼':64,'요한삼서':64,'유':65,'유다서':65,'계':66,'요한계시록':66};
 
-  if(r.status===404) throw new Error(`데이터 없음 (번역본: ${TRANS})`);
-  if(!r.ok) throw new Error('API 오류 ' + r.status);
-
-  const d = await r.json();
-
-  return Object.values(d.verses || {})
-    .map(v => ({ verse: +v.verse, text: (v.text || '').trim() }))
-    .sort((a,b) => a.verse - b.verse);
+async function quickAdd(){
+  const inp=document.getElementById('quickInput').value.trim();
+  if(!inp){alert('예: 요한복음 3:16  또는  요 3:16-18');return;}
+  const m=inp.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/);
+  if(!m){alert('형식 오류\n예: 요한복음 3:16  또는  요 3:16-18');return;}
+  const bkN=m[1].trim(),ch=+m[2],vf=+m[3],vt=m[4]?+m[4]:+m[3];
+  const bn=BA[bkN];
+  if(!bn){alert('"'+bkN+'"을 찾을 수 없습니다\n예: 요, 요한복음, 시, 시편, 롬, 로마서');return;}
+  const bk=BK.find(b=>b.n===bn).k;
+  setRes('<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>'+bk+' '+ch+':'+vf+(vf!==vt?'~'+vt:'')+' 가져오는 중...</div></div>');
+  try{
+    const all=await getChapData(bn,ch);
+    const vs=all.filter(v=>v.verse>=vf&&v.verse<=vt);
+    if(!vs.length)throw new Error('해당 구절이 없습니다');
+    vs.forEach(v=>addQ({ref:bk+' '+ch+':'+v.verse,text:v.text}));
+    notify('✅ '+bk+' '+ch+':'+vf+(vf!==vt?'~'+vt:'')+' 추가됨');
+    rCh(vs,bk,ch,vf!==vt,vf,vt);
+  }catch(e){showErr(e.message);}
 }
 
 // ── 장 전체 불러오기 ──
@@ -353,9 +438,9 @@ async function loadCh(){
   const ch=+document.getElementById('chSel').value;
   const bk=BK.find(b=>b.n===bn).k;
   setBL('lchBtn',true);
-  setRes(`<div class="ldb"><div class="sp" style="width:24px;height:24px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}장 불러오는 중...</div></div>`);
+  setRes('<div class="ldb"><div class="sp" style="width:24px;height:24px;border-width:3px;color:var(--gd);"></div><div>'+bk+' '+ch+'장 불러오는 중...</div></div>');
   try{
-    const vs = getLocalChapter(bn,ch);
+    const vs=await getChapData(bn,ch);
     if(!vs.length)throw new Error('구절을 가져올 수 없습니다');
     rCh(vs,bk,ch);
   }catch(e){showErr(e.message);}
@@ -367,45 +452,39 @@ async function loadVs(){
   const bn=+document.getElementById('bkSel').value;
   const ch=+document.getElementById('chSel').value;
   const vf=+document.getElementById('vfSel').value;
-  const vt=+document.getElementById('vtSel').value;
-  const from=Math.min(vf,vt),to=Math.max(vf,vt);
+  const vt2=+document.getElementById('vtSel').value;
+  const from=Math.min(vf,vt2),to=Math.max(vf,vt2);
   const bk=BK.find(b=>b.n===bn).k;
   setBL('lvsBtn',true);
-  setRes(`<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>${bk} ${ch}:${from}${from!==to?'~'+to:''} 불러오는 중...</div></div>`);
+  setRes('<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>'+bk+' '+ch+':'+from+(from!==to?'~'+to:'')+' 불러오는 중...</div></div>');
   try{
-    const all = getLocalChapter(bn,ch);
+    const all=await getChapData(bn,ch);
     const vs=all.filter(v=>v.verse>=from&&v.verse<=to);
     if(!vs.length)throw new Error('해당 구절이 없습니다');
-    if(from===to){
-      addQ({ref:`${bk} ${ch}:${vs[0].verse}`,text:vs[0].text});
-      notify(`✅ ${bk} ${ch}:${from} 추가됨`);
-    }
+    if(from===to){addQ({ref:bk+' '+ch+':'+vs[0].verse,text:vs[0].text});notify('✅ '+bk+' '+ch+':'+from+' 추가됨');}
     rCh(vs,bk,ch,from!==to,from,to);
   }catch(e){showErr(e.message);}
   finally{setBL('lvsBtn',false);}
 }
 
-// ── 단어 검색 (선택된 책 전체) ──
+// ── 단어 검색 ──
 async function doSrch(){
   const q=document.getElementById('sq').value.trim();
   if(!q)return;
   const bn=+document.getElementById('bkSel').value;
   const bk=BK.find(b=>b.n===bn);
   setBL('srchBtn',true);
-  setRes(`<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>"${q}" 검색 중...<br><span style="font-size:11px;color:var(--tm)">${bk.k} 전체 검색 (${bk.c}장)</span></div></div>`);
+  setRes('<div class="ldb"><div class="sp" style="width:22px;height:22px;border-width:3px;color:var(--gd);"></div><div>"'+q+'" 검색 중...<br><span style="font-size:11px;color:var(--tm)">'+bk.k+' 전체 ('+bk.c+'장)</span></div></div>');
   try{
     const results=[];
     for(let ch=1;ch<=bk.c;ch++){
       try{
-        const vs = getLocalChapter(bn,ch);
-        vs.forEach(v=>{
-          if(v.text.includes(q))
-            results.push({ref:`${bk.k} ${ch}:${v.verse}`,text:v.text});
-        });
-      }catch(e){/* 해당 장 없으면 skip */}
+        const vs=await getChapData(bn,ch);
+        vs.forEach(v=>{if(v.text.includes(q))results.push({ref:bk.k+' '+ch+':'+v.verse,text:v.text});});
+      }catch(e){}
       if(results.length>=30)break;
     }
-    if(!results.length){showErr(`"${q}" 검색 결과가 없습니다.\n다른 단어나 책을 선택해 보세요.`);return;}
+    if(!results.length){showErr('"'+q+'" 검색 결과가 없습니다.');return;}
     rSrch(results);
   }catch(e){showErr(e.message);}
   finally{setBL('srchBtn',false);}
@@ -413,22 +492,20 @@ async function doSrch(){
 
 // ── 렌더링 ──
 function setRes(h){document.getElementById('res').innerHTML=h;}
-function showErr(m){setRes(`<div class="es"><div class="ic">⚠️</div><p>${m.replace(/\n/g,'<br>')}</p></div>`);}
-
+function showErr(m){setRes('<div class="es"><div class="ic">⚠️</div><p>'+m.replace(/\n/g,'<br>')+'</p></div>');}
 function rCh(vs,bk,ch,showAll,from,to){
-  const ab=showAll?`<div style="margin-bottom:9px;"><button class="btn bg2 bfw" onclick='addAll(${JSON.stringify(vs)},${JSON.stringify(bk)},${ch})'>✚ ${bk} ${ch}:${from}~${to} 전체 추가</button></div>`:'';
+  const ab=showAll?'<div style="margin-bottom:9px;"><button class="btn bg2 bfw" onclick='addAll('+JSON.stringify(vs)+','+JSON.stringify(bk)+','+ch+')'>✚ '+bk+' '+ch+':'+from+'~'+to+' 전체 추가</button></div>':'';
   const h=vs.map(v=>{
-    const rf=`${bk} ${ch}:${v.verse}`;
-    const sr=JSON.stringify(rf),st=JSON.stringify(v.text);
-    return`<div class="vi"><div class="vrf">${rf}</div><div class="vtx">${v.text}</div><div class="vac"><button class="btn bg2 bsm" onclick='addQ({ref:${sr},text:${st}});notify("✅ ${rf} 추가됨")'>+ 추가</button></div></div>`;
+    const rf=bk+' '+ch+':'+v.verse,sr=JSON.stringify(rf),st=JSON.stringify(v.text);
+    return'<div class="vi"><div class="vrf">'+rf+'</div><div class="vtx">'+v.text+'</div><div class="vac"><button class="btn bg2 bsm" onclick='addQ({ref:'+sr+',text:'+st+'});notify("✅ '+rf+' 추가됨")'>+ 추가</button></div></div>';
   }).join('');
-  setRes(ab+`<div class="vl">${h}</div>`);
+  setRes(ab+'<div class="vl">'+h+'</div>');
 }
 function rSrch(items){
-  const h=items.map(it=>`<div class="vi"><div class="vrf">${it.ref}</div><div class="vtx">${it.text}</div><div class="vac"><button class="btn bg2 bsm" onclick='addQ(${JSON.stringify(it)});notify("✅ 추가됨")'>+ 추가</button></div></div>`).join('');
-  setRes(`<div class="vl">${h}</div>`);
+  const h=items.map(it=>'<div class="vi"><div class="vrf">'+it.ref+'</div><div class="vtx">'+it.text+'</div><div class="vac"><button class="btn bg2 bsm" onclick='addQ('+JSON.stringify(it)+');notify("✅ 추가됨")'>+ 추가</button></div></div>').join('');
+  setRes('<div class="vl">'+h+'</div>');
 }
-window.addAll=function(vs,bk,ch){vs.forEach(v=>addQ({ref:`${bk} ${ch}:${v.verse}`,text:v.text}));notify(`✅ ${vs.length}개 구절 추가됨`);};
+window.addAll=function(vs,bk,ch){vs.forEach(v=>addQ({ref:bk+' '+ch+':'+v.verse,text:v.text}));notify('✅ '+vs.length+'개 구절 추가됨');};
 
 // ── 큐 ──
 function addQ(it){Q.push({...it,id:Date.now()+Math.random()});if(aIdx<0)aIdx=0;rQ();rPre();}
@@ -438,26 +515,17 @@ function setA(i){aIdx=i;rQ();rPre();}
 function mvAct(d){const n=aIdx+d;if(n>=0&&n<Q.length)setA(n);}
 function rQ(){
   const bd=document.getElementById('qbody');
-  document.getElementById('qcnt').textContent=Q.length?`(${Q.length})`:'';
-  if(!Q.length){bd.innerHTML=`<div class="es"><div class="ic">🗂</div><p>슬라이드가 없습니다</p></div>`;return;}
-  bd.innerHTML=`<div style="display:flex;flex-direction:column;gap:5px;">${Q.map((it,i)=>`
-    <div class="${'qi'+(i===aIdx?' act':'')}" onclick="setA(${i})" draggable="true"
-      ondragstart="df=${i}"
-      ondragover="event.preventDefault();this.classList.add('qdv')"
-      ondragleave="this.classList.remove('qdv')"
-      ondrop="doDrop(event,${i})">
-      <div class="qn">${i+1}</div>
-      <div class="qfo"><div class="qr">${it.ref}</div><div class="qp">${it.text}</div></div>
-      <div class="qd" onclick="event.stopPropagation();rmQ(${i})">✕</div>
-    </div>`).join('')}</div>`;
+  document.getElementById('qcnt').textContent=Q.length?'('+Q.length+')':'';
+  if(!Q.length){bd.innerHTML='<div class="es"><div class="ic">🗂</div><p>슬라이드가 없습니다</p></div>';return;}
+  bd.innerHTML='<div style="display:flex;flex-direction:column;gap:5px;">'+Q.map((it,i)=>
+    '<div class="'+('qi'+(i===aIdx?' act':''))+'" onclick="setA('+i+')" draggable="true" ondragstart="df='+i+'" ondragover="event.preventDefault();this.classList.add('qdv')" ondragleave="this.classList.remove('qdv')" ondrop="doDrop(event,'+i+')"><div class="qn">'+(i+1)+'</div><div class="qfo"><div class="qr">'+it.ref+'</div><div class="qp">'+it.text+'</div></div><div class="qd" onclick="event.stopPropagation();rmQ('+i+')">✕</div></div>'
+  ).join('')+'</div>';
 }
 window.doDrop=function(e,i){
   e.currentTarget.classList.remove('qdv');
   if(df<0||df===i)return;
   const it=Q.splice(df,1)[0];Q.splice(i,0,it);
-  if(aIdx===df)aIdx=i;
-  else if(aIdx>df&&aIdx<=i)aIdx--;
-  else if(aIdx<df&&aIdx>=i)aIdx++;
+  if(aIdx===df)aIdx=i;else if(aIdx>df&&aIdx<=i)aIdx--;else if(aIdx<df&&aIdx>=i)aIdx++;
   df=-1;rQ();rPre();
 };
 
@@ -465,49 +533,34 @@ window.doDrop=function(e,i){
 function rPre(){
   const w=document.getElementById('pw'),pi=document.getElementById('pi'),it=Q[aIdx];
   w.style.background=S.bg;
-  if(!it){pi.innerHTML=`<div style="color:${S.tc};opacity:.25;font-size:11px;">슬라이드 없음</div>`;return;}
+  if(!it){pi.innerHTML='<div style="color:'+S.tc+';opacity:.25;font-size:11px;">슬라이드 없음</div>';return;}
   const sc=.26,fs=Math.round(S.sz*sc),rfs=Math.max(6,Math.round(9*sc));
   const rp=document.getElementById('rpSel').value;
   let rs='display:none';
-  if(rp!=='no'){
-    rs=`position:absolute;font-size:${rfs}px;opacity:.7;color:${S.tc};`;
+  if(rp!=='no'){rs='position:absolute;font-size:'+rfs+'px;opacity:.7;color:'+S.tc+';';
     if(rp==='br')rs+='bottom:5px;right:7px';
     else if(rp==='bl')rs+='bottom:5px;left:7px';
-    else rs+='bottom:5px;left:50%;transform:translateX(-50%)';
-  }
-  pi.innerHTML=`<div style="font-family:'Noto Serif KR',serif;font-size:${fs}px;line-height:1.9;font-weight:600;color:${S.tc};text-align:center;padding:7px;">${it.text}</div><div style="${rs}">${it.ref}</div>`;
+    else rs+='bottom:5px;left:50%;transform:translateX(-50%)';}
+  pi.innerHTML='<div style="font-family:'Noto Serif KR',serif;font-size:'+fs+'px;line-height:1.9;font-weight:600;color:'+S.tc+';text-align:center;padding:7px;">'+it.text+'</div><div style="'+rs+'">'+it.ref+'</div>';
 }
-function clrSw(id){document.querySelectorAll(`#${id} .sw`).forEach(s=>s.classList.remove('on'));}
+function clrSw(id){document.querySelectorAll('#'+id+' .sw').forEach(s=>s.classList.remove('on'));}
 function setBg(el){clrSw('bgsw');el.classList.add('on');S.bg=el.dataset.c;rPre();}
 function setTc(el){clrSw('tcsw');el.classList.add('on');S.tc=el.dataset.c;rPre();}
 
 // ── 전체화면 송출 ──
-function startP(){
-  if(!Q.length){alert('슬라이드 목록이 비어있습니다.');return;}
-  pIdx=Math.max(0,aIdx);
-  document.getElementById('pOv').classList.add('on');
-  rSlide();
-  document.addEventListener('keydown',onKey);
-}
-function stopP(){
-  document.getElementById('pOv').classList.remove('on');
-  document.removeEventListener('keydown',onKey);
-}
+function startP(){if(!Q.length){alert('슬라이드 목록이 비어있습니다.');return;}pIdx=Math.max(0,aIdx);document.getElementById('pOv').classList.add('on');rSlide();document.addEventListener('keydown',onKey);}
+function stopP(){document.getElementById('pOv').classList.remove('on');document.removeEventListener('keydown',onKey);}
 function rSlide(){
-  const it=Q[pIdx];
-  const ov=document.getElementById('pOv'),pv=document.getElementById('pV'),pr=document.getElementById('pR');
+  const it=Q[pIdx],ov=document.getElementById('pOv'),pv=document.getElementById('pV'),pr=document.getElementById('pR');
   ov.style.background=S.bg;ov.style.color=S.tc;
-  pv.style.fontSize=S.sz+'px';
-  pv.style.opacity='0';setTimeout(()=>pv.style.opacity='1',30);
-  pv.textContent=it.text;
+  pv.style.fontSize=S.sz+'px';pv.style.opacity='0';setTimeout(()=>pv.style.opacity='1',30);pv.textContent=it.text;
   const rp=document.getElementById('rpSel').value;
-  pr.style.display=rp==='no'?'none':'block';
-  pr.textContent=it.ref;
+  pr.style.display=rp==='no'?'none':'block';pr.textContent=it.ref;
   pr.style.fontSize=Math.max(14,Math.round(S.sz*.38))+'px';
   if(rp==='br'){pr.style.right='54px';pr.style.left='auto';pr.style.transform='none';}
   else if(rp==='bl'){pr.style.left='54px';pr.style.right='auto';pr.style.transform='none';}
   else{pr.style.left='50%';pr.style.right='auto';pr.style.transform='translateX(-50%)';}
-  document.getElementById('pcnt').textContent=`${pIdx+1} / ${Q.length}`;
+  document.getElementById('pcnt').textContent=(pIdx+1)+' / '+Q.length;
   aIdx=pIdx;rQ();
 }
 function navS(d){const n=pIdx+d;if(n>=0&&n<Q.length){pIdx=n;rSlide();}}
@@ -529,11 +582,8 @@ async function expPPT(){
   Q.forEach(it=>{
     const sl=px.addSlide();sl.background={color:bg};
     sl.addText(it.text,{x:.5,y:.8,w:'90%',h:4.3,fontFace:'Malgun Gothic',fontSize:Math.round(S.sz*.78),color:tc,bold:true,align:'center',valign:'middle',wrap:true,lineSpacingMultiple:1.6});
-    if(rp!=='no'){
-      const rx=rp==='br'?7.8:rp==='bl'?.3:0;
-      const ra=rp==='bc'?'center':rp==='br'?'right':'left';
-      sl.addText(it.ref,{x:rp==='bc'?0:rx,y:5.4,w:rp==='bc'?'100%':4,h:.4,fontFace:'Malgun Gothic',fontSize:14,color:tc,align:ra,transparency:25});
-    }
+    if(rp!=='no'){const rx=rp==='br'?7.8:rp==='bl'?.3:0,ra=rp==='bc'?'center':rp==='br'?'right':'left';
+      sl.addText(it.ref,{x:rp==='bc'?0:rx,y:5.4,w:rp==='bc'?'100%':4,h:.4,fontFace:'Malgun Gothic',fontSize:14,color:tc,align:ra,transparency:25});}
   });
   await px.writeFile({fileName:'성경_슬라이드.pptx'});
   notify('✅ 성경_슬라이드.pptx 저장됨!');
@@ -546,10 +596,7 @@ function setBL(id,on){
   if(on){b._t=b.innerHTML;b.innerHTML='<div class="sp" style="color:currentColor;border-top-color:currentColor;"></div>';}
   else b.innerHTML=b._t||b.innerHTML;
 }
-function notify(m){
-  const e=document.getElementById('nf');e.textContent=m;e.classList.add('on');
-  setTimeout(()=>e.classList.remove('on'),2800);
-}
+function notify(m){const e=document.getElementById('nf');e.textContent=m;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2800);}
 </script>
 </body>
 </html>
